@@ -73,6 +73,14 @@ async function crawlLink(url) {
     });
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      if (["image", "stylesheet", "font"].includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
 
     if (await page.$("div.status-tag_inProgress-activity__6dWxx")) {
       status = "Đang diễn ra";
@@ -125,7 +133,7 @@ app.get("/status", (req, res) => {
 });
 
 // Cron job mỗi phút
-cron.schedule("*/5 * * * * *", async () => {
+cron.schedule("* * * * *", async () => {
   console.log("⏳ Cron chạy...");
   for (let link of monitoredLinks) {
     if (!link.active) continue; // nếu đã kết thúc thì bỏ qua
