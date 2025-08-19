@@ -2,7 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const cron = require("node-cron");
-import cors from "cors";
+const cors = require("cors");
+
 
 const app = express();
 const PORT = 3000;
