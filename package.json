@@ -1,34 +1,25 @@
 {
   "name": "check-coin-end",
   "version": "1.0.0",
-  "description": "Check coin end service",
+  "description": "Tool theo dõi link coin, kiểm tra trạng thái và gửi thông báo",
   "main": "server.js",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": ">=20.18.1",
-    "npm": ">=10.8.2"
-  },
   "dependencies": {
-    "@google-cloud/local-auth": "^2.1.0",
     "axios": "^1.11.0",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "fake-useragent": "^1.0.1",
-    "fingerprint-injector": "^2.1.43",
-    "googleapis": "^105.0.0",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.16",
-    "playwright": "^1.54.2",
-    "puppeteer": "^21.11.0",
-    "puppeteer-cluster": "^0.23.0",
+    "puppeteer": "^24.9.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-anonymize-ua": "^2.4.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "puppeteer-page-proxy": "^1.3.0",
-    "puppeteer-proxy": "^2.1.2"
-  }
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
