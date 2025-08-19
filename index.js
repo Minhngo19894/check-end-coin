@@ -125,6 +125,23 @@ app.post("/add-links", async (req, res) => {
   res.json({ message: "Đã thêm link", monitoredLinks });
 });
 
+app.post("/remove-link", async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: "Cần nhập url" });
+  }
+
+  const index = monitoredLinks.findIndex(l => l.url === url);
+  if (index === -1) {
+    return res.status(404).json({ error: "Không tìm thấy link" });
+  }
+
+  monitoredLinks.splice(index, 1);
+
+  res.json({ message: `Đã xoá link ${url}`, monitoredLinks });
+});
+
 /**
  * API lấy danh sách link
  */
