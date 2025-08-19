@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const cron = require("node-cron");
+import cors from "cors";
 
 const app = express();
 const PORT = 3000;
@@ -37,6 +38,8 @@ const sendEmail = async (url, email) => {
     }
   });
 };
+
+app.use(cors());
 // Cho phép mọi origin (kể cả file://)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
