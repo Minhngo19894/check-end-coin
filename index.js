@@ -109,7 +109,7 @@ app.get("/status", (req, res) => {
 });
 
 // Cron job mỗi phút
-cron.schedule("* * * * *", async () => {
+cron.schedule("*/5 * * * * *", async () => {
   console.log("⏳ Cron chạy...");
   for (let link of monitoredLinks) {
     if (!link.active) continue; // nếu đã kết thúc thì bỏ qua
@@ -132,3 +132,4 @@ cron.schedule("* * * * *", async () => {
 app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });
+
