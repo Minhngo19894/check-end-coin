@@ -81,14 +81,8 @@ async function crawlLink(url) {
         req.continue();
       }
     });
-
-    if (await page.$("div.status-tag_inProgress-activity__6dWxx")) {
-      status = "Đang diễn ra";
-    } else if (await page.$("div.status-tag_ended-activity__UHnet")) {
-      status = "Đã kết thúc";
-    } else {
-      status = "Không rõ";
-    }
+    status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim());
+    
 
     await browser.close();
   } catch (err) {
