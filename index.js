@@ -19,7 +19,7 @@ const sendEmail = async (url, email) => {
       user: 'sephora19894@gmail.com',
       pass: 'dxdy odzr pxhb azjk'
     }
-  }); 
+  });
 
 
   var mailOptions = {
@@ -40,7 +40,11 @@ const sendEmail = async (url, email) => {
   });
 };
 
-app.use(cors());
+app.use(cors({
+  origin: "*",                // Cho phép tất cả domain
+  methods: ["GET", "POST"],    // Cho phép method nào
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 // Cho phép mọi origin (kể cả file://)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
