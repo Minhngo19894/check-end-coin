@@ -9,7 +9,7 @@ const app = express();
 const PORT = 3000;
 const nodemailer = require('nodemailer');
 app.use(bodyParser.json());
-const sendEmail = async (url, email) => {
+const sendEmail = async (coin, email, url) => {
   // Cấu hình nodemailer
   var transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
@@ -25,8 +25,8 @@ const sendEmail = async (url, email) => {
   var mailOptions = {
     from: 'sephora19894@gmail.com',
     to: [email],
-    subject: `${url} Đã kết thúc`,
-    text: `${url} Đã kết thúc`
+    subject: `${coin} Đã kết thúc`,
+    text: `${url}`
   };
 
   transporter.sendMail(mailOptions, function (error, info) {
@@ -61,6 +61,7 @@ let monitoredLinks = [];
  */
 async function crawlLink(url) {
   let status = "Không lấy được";
+  let coin = ""
   try {
     const browser = await puppeteer.launch({
       headless: true,
@@ -82,13 +83,12 @@ async function crawlLink(url) {
       }
     });
     status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim());
-    
-
+    coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim());
     await browser.close();
   } catch (err) {
     console.error("Lỗi crawl:", err.message);
   }
-  return status;
+  return { status, coin };
 }
 
 /**
@@ -149,8 +149,9 @@ cron.schedule("* * * * *", async () => {
   for (let link of monitoredLinks) {
     if (!link.active) continue; // nếu đã kết thúc thì bỏ qua
 
-    const status = await crawlLink(link.url);
+    const { status, coin } = await crawlLink(link.url);
     link.status = status;
+    link.coin = coin
     link.lastChecked = new Date().toLocaleString();
 
     console.log(`✔ ${link.url}: ${status}`);
@@ -159,7 +160,7 @@ cron.schedule("* * * * *", async () => {
       link.active = false; // không theo dõi nữa
       console.log(`🛑 Ngừng theo dõi: ${link.url} (email: ${link.email})`);
 
-      sendEmail(link.url, link.email)
+      sendEmail(coin, link.email, link.url)
     }
   }
 });
