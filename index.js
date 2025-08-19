@@ -17,7 +17,7 @@ const sendEmail = async (url, email) => {
       user: 'sephora19894@gmail.com',
       pass: 'dxdy odzr pxhb azjk'
     }
-  });
+  }); 
 
 
   var mailOptions = {
@@ -132,4 +132,5 @@ cron.schedule("*/5 * * * * *", async () => {
 app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });
+
 
