@@ -5,8 +5,8 @@ const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const cron = require("node-cron");
 const cors = require("cors");
-const pLimit = require("p-limit");
 const nodemailer = require('nodemailer');
+const pLimit = require("p-limit@3"); // nếu lỗi, cài p-limit@3: npm install p-limit@3
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,10 +18,10 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// List theo dõi
+// Danh sách link theo dõi
 let monitoredLinks = [];
 
-// Setup Nodemailer (dùng biến môi trường)
+// Nodemailer setup dùng biến môi trường
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
@@ -32,17 +32,17 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Hàm gửi email
-async function sendEmail(coin, email, url) {
+// Hàm gửi email cho nhiều email
+async function sendEmails(coin, emails, url) {
   try {
     const mailOptions = {
       from: process.env.GMAIL_USER,
-      to: email,
-      subject: coin ? `${coin} Đã kết thúc` : 'Server tràn bộ nhớ ',
+      to: emails.join(","),
+      subject: `${coin} Đã kết thúc`,
       text: `${url}`
     };
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
+    console.log('Email sent to', emails, info.response);
   } catch (err) {
     console.error('Lỗi gửi email:', err.message);
   }
@@ -91,22 +91,33 @@ async function crawlLink(url, email) {
 
   } catch (err) {
     console.error("Lỗi crawl:", err.message);
-    await sendEmail('', email, url);
+    sendEmails('', email, url)
   } finally {
-    if (page) await page.close(); // close tab
+    if (page) await page.close(); // chỉ close tab
   }
   return { status, coin };
 }
 
-// API thêm link
+// API thêm link (mỗi URL có thể nhiều email)
 app.post("/add-links", (req, res) => {
-  const { urls, email } = req.body;
+  const { urls } = req.body; // urls = [{url, emails: []}, ...]
   if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: "urls phải là 1 mảng" });
-  if (!email) return res.status(400).json({ error: "Cần nhập email" });
 
-  for (let url of urls) {
-    if (!monitoredLinks.find(l => l.url === url)) {
-      monitoredLinks.push({ url, email, status: "Chưa kiểm tra", lastChecked: null, active: true });
+  for (let item of urls) {
+    const { url, emails } = item;
+    if (!url || !emails || !Array.isArray(emails)) continue;
+
+    const existing = monitoredLinks.find(l => l.url === url);
+    if (existing) {
+      existing.emails = Array.from(new Set([...existing.emails, ...emails]));
+    } else {
+      monitoredLinks.push({
+        url,
+        emails,
+        status: "Chưa kiểm tra",
+        lastChecked: null,
+        active: true
+      });
     }
   }
 
@@ -137,7 +148,7 @@ cron.schedule("* * * * *", async () => {
   await Promise.all(monitoredLinks.map(link => limit(async () => {
     if (!link.active) return;
 
-    const { status, coin } = await crawlLink(link.url, link.email);
+    const { status, coin } = await crawlLink(link.url, link.emails, link.url);
     link.status = status;
     link.coin = coin;
     link.lastChecked = new Date().toLocaleString();
@@ -146,8 +157,8 @@ cron.schedule("* * * * *", async () => {
 
     if (status === "Đã kết thúc") {
       link.active = false;
-      console.log(`🛑 Ngừng theo dõi: ${link.url} (email: ${link.email})`);
-      await sendEmail(coin, link.email, link.url);
+      console.log(`🛑 Ngừng theo dõi: ${link.url} (emails: ${link.emails})`);
+      await sendEmails(coin, link.emails, link.url);
     }
   })));
 });
