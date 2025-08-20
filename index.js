@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
@@ -9,36 +10,30 @@ const app = express();
 const PORT = 3000;
 const nodemailer = require('nodemailer');
 app.use(bodyParser.json());
-const sendEmail = async (coin, email, url) => {
-  // Cấu hình nodemailer
-  var transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: 'sephora19894@gmail.com',
-      pass: 'dxdy odzr pxhb azjk'
-    }
-  });
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
+  }
+});
 
-
-  var mailOptions = {
-    from: 'sephora19894@gmail.com',
-    to: [email],
-    subject: `${coin} Đã kết thúc`,
-    text: `${url}`
-  };
-
-  transporter.sendMail(mailOptions, function (error, info) {
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email sent: ' + info.response);
-      lastSendTime = new Date();
-      lastString = str
-    }
-  });
-};
+async function sendEmails(coin, emails, url) {
+  if (!emails || !emails.length) return;
+  try {
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: emails.join(","),
+      subject: `${coin} Đã kết thúc`,
+      text: `${url}`
+    });
+    console.log("Email sent to", emails);
+  } catch (err) {
+    console.error("Email error:", err.message);
+  }
+}
 
 app.use(cors({
   origin: "*",                // Cho phép tất cả domain
@@ -73,8 +68,15 @@ async function crawlLink(url) {
       ]
     });
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     await page.setRequestInterception(true);
+    page.on("request", req => {
+      if (["image", "stylesheet", "font"].includes(req.resourceType())) req.abort();
+      else req.continue();
+    });
+
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+
+
     page.on("request", (req) => {
       if (["image", "stylesheet", "font"].includes(req.resourceType())) {
         req.abort();
@@ -88,34 +90,23 @@ async function crawlLink(url) {
   } catch (err) {
     console.error("Lỗi crawl:", err.message);
   }
+  finally { if (page) await page.close(); }
   return { status, coin };
 }
 
 /**
  * API thêm link mới + email
  */
-app.post("/add-links", async (req, res) => {
-  const { urls, email } = req.body;
-  if (!urls || !Array.isArray(urls)) {
-    return res.status(400).json({ error: "urls phải là 1 mảng" });
+app.post("/add-links", (req, res) => {
+  const { urls } = req.body;
+  if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: "urls phải là mảng" });
+  for (let item of urls) {
+    const { url, emails } = item;
+    if (!url || !emails || !Array.isArray(emails)) continue;
+    const exist = monitoredLinks.find(l => l.url === url);
+    if (exist) exist.emails = Array.from(new Set([...exist.emails, ...emails]));
+    else monitoredLinks.push({ url, emails, status: "Chưa kiểm tra", lastChecked: null, active: true });
   }
-  if (!email) {
-    return res.status(400).json({ error: "Cần nhập email" });
-  }
-
-  // Thêm link mới chưa có
-  for (let url of urls) {
-    if (!monitoredLinks.find(l => l.url === url)) {
-      monitoredLinks.push({
-        url,
-        email,
-        status: "Chưa kiểm tra",
-        lastChecked: null,
-        active: true
-      });
-    }
-  }
-
   res.json({ message: "Đã thêm link", monitoredLinks });
 });
 
@@ -134,6 +125,15 @@ app.post("/remove-link", async (req, res) => {
   monitoredLinks.splice(index, 1);
 
   res.json({ message: `Đã xoá link ${url}`, monitoredLinks });
+});
+
+app.post("/add-email", (req, res) => {
+  const { url, email } = req.body;
+  if (!url || !email) return res.status(400).json({ error: "Cần url và email" });
+  const link = monitoredLinks.find(l => l.url === url);
+  if (!link) return res.status(404).json({ error: "Không tìm thấy URL" });
+  if (!link.emails.includes(email)) link.emails.push(email);
+  res.json({ message: `Đã thêm email ${email}`, emails: link.emails });
 });
 
 /**
@@ -158,9 +158,9 @@ cron.schedule("* * * * *", async () => {
 
     if (status === "Đã kết thúc") {
       link.active = false; // không theo dõi nữa
-      console.log(`🛑 Ngừng theo dõi: ${link.url} (email: ${link.email})`);
+      console.log(`🛑 Ngừng theo dõi: ${link.url} `);
 
-      sendEmail(coin, link.email, link.url)
+      sendEmails(coin, link.emails, link.url)
     }
   }
 });
