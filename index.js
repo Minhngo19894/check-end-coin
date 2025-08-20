@@ -12,11 +12,17 @@ const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST"],
+  origin: "*",                // Cho phép tất cả domain
+  methods: ["GET", "POST"],    // Cho phép method nào
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
+// Cho phép mọi origin (kể cả file://)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  next();
+});
 // Danh sách link theo dõi
 let monitoredLinks = [];
 
