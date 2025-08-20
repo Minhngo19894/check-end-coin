@@ -69,21 +69,21 @@ async function crawlLink(url) {
     });
     const page = await browser.newPage();
     await page.setRequestInterception(true);
-    page.on("request", req => {
-      if (["image", "stylesheet", "font"].includes(req.resourceType())) req.abort();
-      else req.continue();
+    page.on("request", (req) => {
+      try {
+        if (["image", "stylesheet", "font"].includes(req.resourceType())) {
+          if (!req.isInterceptResolutionHandled()) req.abort();
+        } else {
+          if (!req.isInterceptResolutionHandled()) req.continue();
+        }
+      } catch (err) {
+        console.log("Request handling error:", err.message);
+      }
     });
-
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
 
-    page.on("request", (req) => {
-      if (["image", "stylesheet", "font"].includes(req.resourceType())) {
-        req.abort();
-      } else {
-        req.continue();
-      }
-    });
+    
     status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim());
     coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim());
     await browser.close();
