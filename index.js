@@ -26,7 +26,7 @@ async function sendEmails(coin, emails, url) {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: emails.join(","),
-      subject: `${coin} Đã kết thúc`,
+      subject: coin ? `${coin} Đã kết thúc` : 'Server hết ram khởi động lại đi',
       text: `${url}`
     });
     console.log("Email sent to", emails);
@@ -60,13 +60,13 @@ async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox","--disable-setuid-sandbox"]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
   }
   return browser;
 }
 
-async function crawlLink(url) {
+async function crawlLink(url, emails) {
   let status = "Không lấy được";
   let coin = "";
   let page;
@@ -77,7 +77,7 @@ async function crawlLink(url) {
 
     page.on("request", req => {
       try {
-        if (["image","stylesheet","font"].includes(req.resourceType())) {
+        if (["image", "stylesheet", "font"].includes(req.resourceType())) {
           if (!req.isInterceptResolutionHandled()) req.abort();
         } else {
           if (!req.isInterceptResolutionHandled()) req.continue();
@@ -87,18 +87,19 @@ async function crawlLink(url) {
       }
     });
 
-    await page.goto(url,{waitUntil:"networkidle2",timeout:60000});
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     // Lấy status và coin
-    status = await page.$eval('div.v2_statusTag-activity__44BHZ span',el=>el.textContent.trim()).catch(()=>status);
-    coin = await page.$eval('div.v2_title-activity___S0uO span',el=>el.textContent.trim()).catch(()=>coin);
+    status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim()).catch(() => status);
+    coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim()).catch(() => coin);
 
-  } catch(e){
-    console.error("Crawl error:",e.message);
+  } catch (e) {
+    console.error("Crawl error:", e.message);
+    sendEmails(undefined, emails, url)
   } finally {
-    if(page) await page.close();
+    if (page) await page.close();
   }
-  return {status, coin};
+  return { status, coin };
 }
 
 
@@ -158,7 +159,7 @@ cron.schedule("* * * * *", async () => {
   for (let link of monitoredLinks) {
     if (!link.active) continue; // nếu đã kết thúc thì bỏ qua
 
-    const { status, coin } = await crawlLink(link.url);
+    const { status, coin } = await crawlLink(link.url, link.emails);
     link.status = status;
     link.coin = coin
     link.lastChecked = new Date().toLocaleString();
@@ -172,6 +173,12 @@ cron.schedule("* * * * *", async () => {
       sendEmails(coin, link.emails, link.url)
     }
   }
+});
+
+
+process.on('SIGINT',async ()=>{
+  if(browser) await browser.close();
+  process.exit();
 });
 
 app.listen(PORT, () => {
