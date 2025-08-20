@@ -54,24 +54,30 @@ let monitoredLinks = [];
 /**
  * Crawl 1 link
  */
+
+let browser;
+async function getBrowser() {
+  if (!browser) {
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: ["--no-sandbox","--disable-setuid-sandbox"]
+    });
+  }
+  return browser;
+}
+
 async function crawlLink(url) {
   let status = "Không lấy được";
-  let coin = ""
+  let coin = "";
+  let page;
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu"
-      ]
-    });
-    const page = await browser.newPage();
+    const browser = await getBrowser();
+    page = await browser.newPage();
     await page.setRequestInterception(true);
-    page.on("request", (req) => {
+
+    page.on("request", req => {
       try {
-        if (["image", "stylesheet", "font"].includes(req.resourceType())) {
+        if (["image","stylesheet","font"].includes(req.resourceType())) {
           if (!req.isInterceptResolutionHandled()) req.abort();
         } else {
           if (!req.isInterceptResolutionHandled()) req.continue();
@@ -80,19 +86,22 @@ async function crawlLink(url) {
         console.log("Request handling error:", err.message);
       }
     });
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
+    await page.goto(url,{waitUntil:"networkidle2",timeout:60000});
 
-    
-    status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim());
-    coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim());
-    await browser.close();
-  } catch (err) {
-    console.error("Lỗi crawl:", err.message);
+    // Lấy status và coin
+    status = await page.$eval('div.v2_statusTag-activity__44BHZ span',el=>el.textContent.trim()).catch(()=>status);
+    coin = await page.$eval('div.v2_title-activity___S0uO span',el=>el.textContent.trim()).catch(()=>coin);
+
+  } catch(e){
+    console.error("Crawl error:",e.message);
+  } finally {
+    if(page) await page.close();
   }
-  finally { if (page) await page.close(); }
-  return { status, coin };
+  return {status, coin};
 }
+
+
 
 /**
  * API thêm link mới + email
