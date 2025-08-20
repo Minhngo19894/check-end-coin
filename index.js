@@ -56,8 +56,17 @@ async function crawlLink(url) {
   let coin = "";
   let page;
   try {
-    const browser = await getBrowser();
-    page = await browser.newPage();
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu"
+      ]
+    });
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
     await page.setRequestInterception(true);
     page.on("request", req => {
       if (["image","stylesheet","font"].includes(req.resourceType())) req.abort();
