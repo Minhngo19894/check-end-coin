@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -6,7 +5,7 @@ const puppeteer = require("puppeteer");
 const cron = require("node-cron");
 const cors = require("cors");
 const nodemailer = require('nodemailer');
-const pLimit = require("p-limit@3"); // nếu lỗi, cài p-limit@3: npm install p-limit@3
+const pLimit = require("p-limit"); // PHẢI cài phiên bản 3: npm install p-limit@3
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +20,7 @@ app.use(cors({
 // Danh sách link theo dõi
 let monitoredLinks = [];
 
-// Nodemailer setup dùng biến môi trường
+// Nodemailer setup
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
@@ -32,13 +31,13 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Hàm gửi email cho nhiều email
+// Gửi email cho nhiều email
 async function sendEmails(coin, emails, url) {
   try {
     const mailOptions = {
       from: process.env.GMAIL_USER,
       to: emails.join(","),
-      subject: `${coin} Đã kết thúc`,
+      subject: coin ? `${coin} Đã kết thúc` : 'Server hết Ram rồi',
       text: `${url}`
     };
     const info = await transporter.sendMail(mailOptions);
@@ -66,7 +65,7 @@ async function getBrowser() {
 }
 
 // Crawl 1 link
-async function crawlLink(url, email) {
+async function crawlLink(url, emails) {
   let status = "Không lấy được";
   let coin = "";
   let page;
@@ -74,33 +73,28 @@ async function crawlLink(url, email) {
     const browser = await getBrowser();
     page = await browser.newPage();
 
-    // Chặn image/font/css để giảm load
     await page.setRequestInterception(true);
-    page.on("request", (req) => {
-      if (["image", "stylesheet", "font"].includes(req.resourceType())) {
-        req.abort();
-      } else {
-        req.continue();
-      }
+    page.on("request", req => {
+      if (["image", "stylesheet", "font"].includes(req.resourceType())) req.abort();
+      else req.continue();
     });
 
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
     status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim());
     coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim());
-
   } catch (err) {
     console.error("Lỗi crawl:", err.message);
-    sendEmails('', email, url)
+    await sendEmails(undefined, emails, url);
   } finally {
-    if (page) await page.close(); // chỉ close tab
+    if (page) await page.close();
   }
   return { status, coin };
 }
 
-// API thêm link (mỗi URL có thể nhiều email)
+// API thêm link
 app.post("/add-links", (req, res) => {
-  const { urls } = req.body; // urls = [{url, emails: []}, ...]
+  const { urls } = req.body; // [{url, emails: []}]
   if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: "urls phải là 1 mảng" });
 
   for (let item of urls) {
@@ -122,6 +116,18 @@ app.post("/add-links", (req, res) => {
   }
 
   res.json({ message: "Đã thêm link", monitoredLinks });
+});
+
+// API thêm email vào URL
+app.post("/add-email", (req, res) => {
+  const { url, email } = req.body;
+  if (!url || !email) return res.status(400).json({ error: "Cần cung cấp url và email" });
+
+  const link = monitoredLinks.find(l => l.url === url);
+  if (!link) return res.status(404).json({ error: "Không tìm thấy URL" });
+
+  if (!link.emails.includes(email)) link.emails.push(email);
+  res.json({ message: `Đã thêm email ${email} vào ${url}`, emails: link.emails });
 });
 
 // API xoá link
@@ -148,7 +154,7 @@ cron.schedule("* * * * *", async () => {
   await Promise.all(monitoredLinks.map(link => limit(async () => {
     if (!link.active) return;
 
-    const { status, coin } = await crawlLink(link.url, link.emails, link.url);
+    const { status, coin } = await crawlLink(link.url, link.emails);
     link.status = status;
     link.coin = coin;
     link.lastChecked = new Date().toLocaleString();
