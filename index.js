@@ -207,5 +207,5 @@ app.listen(PORT, () => {
 setTimeout(() => {
   console.log("Restarting app to clear RAM...");
   process.exit(1); // Railway sẽ auto restart container
-}, 1 * 60 * 1000);
+}, 60 * 60 * 1000);
 
