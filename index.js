@@ -4,7 +4,9 @@ const bodyParser = require("body-parser");
 const puppeteer = require("puppeteer");
 const cron = require("node-cron");
 const cors = require("cors");
-
+const fs = require("fs");
+const path = require("path");
+const filePath = path.join(__dirname, "monitoredLinks.json");
 
 const app = express();
 const PORT = 3000;
@@ -51,6 +53,17 @@ app.use((req, res, next) => {
 // Danh sách link cần theo dõi
 let monitoredLinks = [];
 
+if (fs.existsSync(filePath)) {
+  try {
+    monitoredLinks = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (e) {
+    console.error("Error reading monitoredLinks.json", e);
+  }
+}
+
+function saveLinks() {
+  fs.writeFileSync(filePath, JSON.stringify(monitoredLinks, null, 2));
+}
 /**
  * Crawl 1 link
  */
@@ -118,6 +131,8 @@ app.post("/add-links", (req, res) => {
     else monitoredLinks.push({ url, emails, status: "Chưa kiểm tra", lastChecked: null, active: true });
   }
   res.json({ message: "Đã thêm link", monitoredLinks });
+  saveLinks();
+
 });
 
 app.post("/remove-link", async (req, res) => {
@@ -135,6 +150,8 @@ app.post("/remove-link", async (req, res) => {
   monitoredLinks.splice(index, 1);
 
   res.json({ message: `Đã xoá link ${url}`, monitoredLinks });
+  saveLinks();
+
 });
 
 app.post("/add-email", (req, res) => {
@@ -144,6 +161,8 @@ app.post("/add-email", (req, res) => {
   if (!link) return res.status(404).json({ error: "Không tìm thấy URL" });
   if (!link.emails.includes(email)) link.emails.push(email);
   res.json({ message: `Đã thêm email ${email}`, emails: link.emails });
+  saveLinks();
+
 });
 
 /**
@@ -176,8 +195,8 @@ cron.schedule("* * * * *", async () => {
 });
 
 
-process.on('SIGINT',async ()=>{
-  if(browser) await browser.close();
+process.on('SIGINT', async () => {
+  if (browser) await browser.close();
   process.exit();
 });
 
@@ -185,4 +204,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });
 
+setTimeout(() => {
+  console.log("Restarting app to clear RAM...");
+  process.exit(0); // Railway sẽ auto restart container
+}, 60 * 60 * 1000);
 
