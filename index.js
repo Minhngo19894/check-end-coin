@@ -110,7 +110,7 @@ async function crawlLink(url, emails) {
     console.error("Crawl error:", e.message);
     sendEmails(undefined, emails, url)
   } finally {
-    if (page) await page.close();
+    if (browser) await page.close();
   }
   return { status, coin };
 }
