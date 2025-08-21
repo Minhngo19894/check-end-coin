@@ -21,6 +21,7 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_PASS
   }
 });
+let isSent;
 
 async function sendEmails(coin, emails, url) {
   if (!emails || !emails.length) return;
@@ -32,6 +33,9 @@ async function sendEmails(coin, emails, url) {
       text: `${url}`
     });
     console.log("Email sent to", emails);
+    if (!coin) {
+      isSent = true
+    }
   } catch (err) {
     console.error("Email error:", err.message);
   }
@@ -108,7 +112,9 @@ async function crawlLink(url, emails) {
 
   } catch (e) {
     console.error("Crawl error:", e.message);
-    sendEmails(undefined, emails, url)
+    if (!isSent) {
+      sendEmails(undefined, emails, url)
+    }
   } finally {
     if (page) await page.close();
   }
@@ -206,6 +212,9 @@ app.listen(PORT, () => {
 
 setTimeout(() => {
   console.log("Restarting app to clear RAM...");
+  isSent = false;
   process.exit(1); // Railway sẽ auto restart container
-}, 60 * 60 * 1000);
+  
+
+}, 30 * 60 * 1000);
 
