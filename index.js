@@ -204,8 +204,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });
 
-// setTimeout(() => {
-//   console.log("Restarting app to clear RAM...");
-//   process.exit(0); // Railway sẽ auto restart container
-// }, 60 * 60 * 1000);
+setTimeout(() => {
+  console.log("Restarting app to clear RAM...");
+  process.exit(1); // Railway sẽ auto restart container
+}, 1 * 60 * 1000);
 
