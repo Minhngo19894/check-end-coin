@@ -216,5 +216,5 @@ setTimeout(() => {
   process.exit(1); // Railway sẽ auto restart container
   
 
-}, 60 * 60 * 1000);
+}, 30 * 60 * 1000);
 
