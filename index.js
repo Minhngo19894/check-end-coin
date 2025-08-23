@@ -77,25 +77,11 @@ async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-software-rasterizer",
-        "--no-zygote",
-        "--single-process",
-        "--disable-extensions",
-        "--disable-background-networking",
-        "--disable-default-apps",
-        "--disable-sync",
-        "--disable-translate"
-      ]
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
   }
   return browser;
 }
-
 
 async function crawlLink(url, emails) {
   let status = "Không lấy được";
@@ -127,7 +113,7 @@ async function crawlLink(url, emails) {
   } catch (e) {
     console.error("Crawl error:", e.message);
     if (!isSent) {
-      // sendEmails(undefined, emails, url)
+      sendEmails(undefined, emails, url)
     }
   } finally {
     if (page) await page.close();
