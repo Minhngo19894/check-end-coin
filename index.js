@@ -73,9 +73,6 @@ function saveLinks() {
  */
 
 let browser;
-let crawlCount = 0;
-
-// Khởi tạo hoặc lấy browser đang mở
 async function getBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
@@ -98,14 +95,8 @@ async function getBrowser() {
   }
   return browser;
 }
-async function resetBrowser() {
-  if (browser) {
-    await browser.close();
-    browser = null;
-    crawlCount = 0;
-    console.log("♻️ Browser reset để giải phóng RAM");
-  }
-}
+
+
 async function crawlLink(url, emails) {
   let status = "Không lấy được";
   let coin = "";
@@ -113,42 +104,34 @@ async function crawlLink(url, emails) {
   try {
     const browser = await getBrowser();
     page = await browser.newPage();
-    crawlCount++;
-
-    // Chặn resource không cần thiết
     await page.setRequestInterception(true);
-    const blockedTypes = ["image", "stylesheet", "font", "media", "other"];
+
     page.on("request", req => {
-      if (blockedTypes.includes(req.resourceType())) {
-        if (!req.isInterceptResolutionHandled()) req.abort();
-      } else {
-        if (!req.isInterceptResolutionHandled()) req.continue();
+      try {
+        if (["image", "stylesheet", "font"].includes(req.resourceType())) {
+          if (!req.isInterceptResolutionHandled()) req.abort();
+        } else {
+          if (!req.isInterceptResolutionHandled()) req.continue();
+        }
+      } catch (err) {
+        console.log("Request handling error:", err.message);
       }
     });
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    // Lấy status
-    status = await page
-      .$eval("div.v2_statusTag-activity__44BHZ span", el => el.textContent.trim())
-      .catch(() => status);
-
-    // Lấy coin
-    coin = await page
-      .$eval("div.v2_title-activity___S0uO span", el => el.textContent.trim())
-      .catch(() => coin);
+    // Lấy status và coin
+    status = await page.$eval('div.v2_statusTag-activity__44BHZ span', el => el.textContent.trim()).catch(() => status);
+    coin = await page.$eval('div.v2_title-activity___S0uO span', el => el.textContent.trim()).catch(() => coin);
 
   } catch (e) {
     console.error("Crawl error:", e.message);
+    if (!isSent) {
+      // sendEmails(undefined, emails, url)
+    }
   } finally {
     if (page) await page.close();
   }
-
-  // Reset browser sau 50 lần crawl (có thể chỉnh số khác)
-  if (crawlCount >= 50) {
-    await resetBrowser();
-  }
-
   return { status, coin };
 }
 
@@ -210,28 +193,38 @@ app.get("/status", (req, res) => {
 });
 
 // Cron job mỗi phút
+let currentIndex = 0; // để nhớ đang crawl đến link nào
+
 cron.schedule("* * * * *", async () => {
   console.log("⏳ Cron chạy...");
 
-  for (let link of monitoredLinks) {
-    if (!link.active) continue; // nếu đã kết thúc thì bỏ qua
+  if (monitoredLinks.length === 0) {
+    console.log("⚠ Không có link nào trong danh sách.");
+    return;
+  }
 
-    // random delay 1–20 giây
-    const delay = Math.floor(Math.random() * 20) + 1;
-    console.log(`⏲ Đợi ${delay}s trước khi check ${link.url}...`);
-    await new Promise(r => setTimeout(r, delay * 1000));
+  // lấy 2 link trong danh sách (từ currentIndex)
+  const batch = monitoredLinks.slice(currentIndex, currentIndex + 2);
+  currentIndex += 2;
+
+  // nếu đã vượt quá danh sách thì quay lại từ đầu
+  if (currentIndex >= monitoredLinks.length) {
+    currentIndex = 0;
+  }
+
+  for (let link of batch) {
+    if (!link.active) continue; // bỏ qua nếu link đã kết thúc
 
     const { status, coin } = await crawlLink(link.url, link.emails);
     link.status = status;
     link.coin = coin;
-    link.lastChecked = new Date().toLocaleString();
+    link.lastChecked = new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
     console.log(`✔ ${link.url}: ${status}`);
 
     if (status === "Đã kết thúc") {
-      link.active = false; // không theo dõi nữa
+      link.active = false;
       console.log(`🛑 Ngừng theo dõi: ${link.url}`);
-
       sendEmails(coin, link.emails, link.url);
     }
   }
