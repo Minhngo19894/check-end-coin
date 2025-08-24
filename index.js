@@ -103,9 +103,7 @@ async function crawlLink(url, emails) {
         console.log("Request handling error:", err.message);
       }
     });
-setTimeout(async ()=>{
-await page.close();
-},30000)
+
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
     // Lấy status và coin
