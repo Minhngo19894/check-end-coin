@@ -113,7 +113,10 @@ async function crawlLink(url, emails) {
   } catch (e) {
     console.error("Crawl error:", e.message);
     if (!isSent) {
-      sendEmails(undefined, emails, url)
+      sendEmails(undefined, emails, url);
+      console.log("Restarting app to clear RAM...");
+      isSent = false;
+      process.exit(1); // Railway sẽ auto restart container
     }
   } finally {
     if (page) await page.close();
@@ -226,11 +229,11 @@ app.listen(PORT, () => {
   console.log(`🚀 Server chạy tại http://localhost:${PORT}`);
 });
 
-setTimeout(() => {
-  console.log("Restarting app to clear RAM...");
-  isSent = false;
-  process.exit(1); // Railway sẽ auto restart container
+// setTimeout(() => {
+//   console.log("Restarting app to clear RAM...");
+//   isSent = false;
+//   process.exit(1); // Railway sẽ auto restart container
   
 
-}, 30 * 60 * 1000);
+// }, 30 * 60 * 1000);
 
