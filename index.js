@@ -116,7 +116,7 @@ async function crawlLink(url, emails) {
   } catch (e) {
     console.error("Crawl error:", e.message);
     if (!isSent) {
-      sendEmails(undefined, emails, url);
+      // sendEmails(undefined, emails, url);
       
     }
   } finally {
