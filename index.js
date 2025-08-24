@@ -35,6 +35,9 @@ async function sendEmails(coin, emails, url) {
     console.log("Email sent to", emails);
     if (!coin) {
       isSent = true
+      console.log("Restarting app to clear RAM...");
+      isSent = false;
+      process.exit(1); // Railway sẽ auto restart container
     }
   } catch (err) {
     console.error("Email error:", err.message);
@@ -114,9 +117,7 @@ async function crawlLink(url, emails) {
     console.error("Crawl error:", e.message);
     if (!isSent) {
       sendEmails(undefined, emails, url);
-      console.log("Restarting app to clear RAM...");
-      isSent = false;
-      process.exit(1); // Railway sẽ auto restart container
+      
     }
   } finally {
     if (page) await page.close();
@@ -193,8 +194,8 @@ cron.schedule("* * * * *", async () => {
   }
 
   // lấy 2 link trong danh sách (từ currentIndex)
-  const batch = monitoredLinks.slice(currentIndex, currentIndex + 2);
-  currentIndex += 2;
+  const batch = monitoredLinks.slice(currentIndex, currentIndex + 4);
+  currentIndex += 4;
 
   // nếu đã vượt quá danh sách thì quay lại từ đầu
   if (currentIndex >= monitoredLinks.length) {
