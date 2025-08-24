@@ -28,7 +28,7 @@ async function sendEmails(coin, emails, url) {
   try {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
-      to: coin?emails.join(","):'minhn19894@gmail.com',
+      to: coin?emails.join(","):['minhn19894@gmail.com'],
       subject: coin ? `${coin} Đã kết thúc` : 'Server hết ram khởi động lại đi',
       text: `${url}`
     });
